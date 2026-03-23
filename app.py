@@ -1,5 +1,6 @@
+import html
 import streamlit as st
-from src.chain import get_structured_recommendation
+from src.chain import get_recommendation_stream, get_structured_recommendation
 
 st.set_page_config(page_title="카드 추천 AI", page_icon="💳", layout="wide")
 
@@ -186,9 +187,24 @@ with st.sidebar:
     )
 
 # 추천 버튼
+mode = st.radio("출력 방식", ["구조화 카드", "스트리밍 텍스트"], horizontal=True)
+
 if st.button("카드 추천 받기", type="primary", use_container_width=True):
     if not persona_text.strip():
         st.warning("소비 패턴을 입력해주세요.")
+    elif mode == "스트리밍 텍스트":
+        stream, source_cards = get_recommendation_stream(persona_text)
+        st.write_stream(stream)
+        if source_cards:
+            st.markdown("---")
+            st.markdown("**참고 카드:**")
+            for card in source_cards:
+                name = html.escape(card.get("card_name", ""))
+                url = card.get("card_url", "")
+                if url:
+                    st.markdown(f"- [{name}]({url})")
+                else:
+                    st.markdown(f"- {name}")
     else:
         with st.spinner("AI가 맞춤 카드를 분석하고 있습니다..."):
             result = get_structured_recommendation(persona_text)
@@ -199,15 +215,16 @@ if st.button("카드 추천 받기", type="primary", use_container_width=True):
             st.error("추천 결과를 생성하지 못했습니다. 다시 시도해주세요.")
         else:
             for i, rec in enumerate(recommendations, 1):
-                card_name = rec.get("card_name", "알 수 없음")
-                card_company = rec.get("card_company", "")
-                reason = rec.get("reason", "")
-                saving = rec.get("monthly_saving", "")
+                card_name = html.escape(rec.get("card_name", "알 수 없음"))
+                card_company = html.escape(rec.get("card_company", ""))
+                reason = html.escape(rec.get("reason", ""))
+                saving = html.escape(rec.get("monthly_saving", ""))
                 card_url = rec.get("card_url", "")
 
                 link_html = ""
-                if card_url:
-                    link_html = f'<a class="card-link" href="{card_url}" target="_blank">상세 정보 보기 &rarr;</a>'
+                if card_url and card_url.startswith(("http://", "https://")):
+                    safe_url = html.escape(card_url)
+                    link_html = f'<a class="card-link" href="{safe_url}" target="_blank">상세 정보 보기 &rarr;</a>'
 
                 st.markdown(f"""
                 <div class="card-box">

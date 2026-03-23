@@ -8,8 +8,7 @@ load_dotenv()
 BASE_DIR = Path(__file__).parent
 DATA_RAW_DIR = BASE_DIR / "data" / "raw"
 DATA_PROCESSED_DIR = BASE_DIR / "data" / "processed"
-# FAISS는 한글 경로를 지원하지 않으므로 영문 경로 사용
-VECTORDB_DIR = Path.home() / ".card_recommend_ai" / "vectordb"
+VECTORDB_DIR = BASE_DIR / "data" / "vectordb"
 FAISS_INDEX_PATH = VECTORDB_DIR / "faiss_index"
 
 # 임베딩 모델

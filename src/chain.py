@@ -5,9 +5,9 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
 import config
-from src.embedding import create_documents, get_embedding_model
+from src.embedding import create_documents
 from src.vectorstore import load_vectorstore, build_and_save
-from src.retriever import get_advanced_retriever, get_base_retriever
+from src.retriever import get_advanced_retriever
 
 # 추천 프롬프트 템플릿 (스트리밍용)
 RECOMMEND_PROMPT = ChatPromptTemplate.from_template("""당신은 카드 추천 전문가입니다.
@@ -137,11 +137,14 @@ def get_structured_recommendation(persona_text: str) -> dict:
     try:
         recommendations = json_module.loads(raw)
     except json_module.JSONDecodeError:
-        # JSON 파싱 실패 시 ```json ... ``` 블록 추출 시도
         import re
-        match = re.search(r'\[.*\]', raw, re.DOTALL)
+        # 가장 바깥쪽 JSON 배열을 non-greedy로 추출
+        match = re.search(r'\[.*?\]', raw, re.DOTALL)
         if match:
-            recommendations = json_module.loads(match.group())
+            try:
+                recommendations = json_module.loads(match.group())
+            except json_module.JSONDecodeError:
+                recommendations = []
         else:
             recommendations = []
 
@@ -153,6 +156,18 @@ def get_structured_recommendation(persona_text: str) -> dict:
         rec["card_url"] = src.get("card_url", "")
 
     return {"recommendations": recommendations, "source_cards": source_cards}
+
+
+def get_rag_response(persona_text: str) -> str:
+    """평가용: RAG 기반 GPT 응답 (get_base_response와 비교용)"""
+    retriever, _ = _load_retriever_and_docs()
+
+    docs = retriever.invoke(persona_text)
+    context = format_docs(docs)
+
+    llm = _get_llm()
+    chain = RECOMMEND_PROMPT | llm | StrOutputParser()
+    return chain.invoke({"context": context, "persona": persona_text})
 
 
 def get_base_response(persona_text: str) -> str:
