@@ -21,7 +21,7 @@ def get_embedding_model() -> HuggingFaceEmbeddings:
 def load_card_data(json_path: str = None) -> list[dict]:
     """JSON 파일에서 카드 데이터 로드"""
     if json_path is None:
-        json_path = config.DATA_RAW_DIR / "sample_cards.json"
+        json_path = config.DATA_RAW_DIR / "cards_data.json"
 
     with open(json_path, "r", encoding="utf-8") as f:
         cards = json.load(f)
