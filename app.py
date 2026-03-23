@@ -37,6 +37,23 @@ st.markdown("""
         margin-bottom: 2rem;
     }
 
+    /* 섹션 헤더 */
+    .section-header {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin: 1.5rem 0 1rem 0;
+        padding-bottom: 0.5rem;
+        border-bottom: 2px solid;
+    }
+    .section-header.credit {
+        color: #7b2ff7;
+        border-color: #7b2ff7;
+    }
+    .section-header.check {
+        color: #00d2ff;
+        border-color: #00d2ff;
+    }
+
     /* 카드 컨테이너 */
     .card-box {
         background: linear-gradient(145deg, #1e1e36, #2a2a4a);
@@ -52,18 +69,26 @@ st.markdown("""
         transform: translateY(-3px);
         box-shadow: 0 8px 30px rgba(123, 47, 247, 0.3);
     }
+    .card-box.check-type:hover {
+        box-shadow: 0 8px 30px rgba(0, 210, 255, 0.3);
+    }
 
     /* 넘버링 뱃지 */
     .card-number {
         position: absolute;
         top: 0;
         left: 0;
-        background: linear-gradient(135deg, #7b2ff7, #00d2ff);
         color: #fff;
         font-weight: 800;
         font-size: 1rem;
         padding: 0.4rem 1rem 0.4rem 0.8rem;
         border-radius: 16px 0 16px 0;
+    }
+    .card-number.credit {
+        background: linear-gradient(135deg, #7b2ff7, #a855f7);
+    }
+    .card-number.check {
+        background: linear-gradient(135deg, #00d2ff, #0ea5e9);
     }
 
     /* 카드 이름 */
@@ -77,6 +102,11 @@ st.markdown("""
     .card-company {
         font-size: 0.9rem;
         color: #aaa;
+        margin-bottom: 0.3rem;
+    }
+    .card-fee {
+        font-size: 0.85rem;
+        color: #888;
         margin-bottom: 1rem;
     }
 
@@ -109,25 +139,22 @@ st.markdown("""
         margin-top: 0.3rem;
     }
 
-    /* 링크 */
-    .card-link {
+    /* 링크 버튼 */
+    .card-link-btn {
         display: inline-block;
-        margin-top: 0.8rem;
-        color: #ff6bcb;
+        margin-top: 1rem;
+        padding: 0.5rem 1.2rem;
+        background: linear-gradient(135deg, #ff6bcb, #ff9de0);
+        color: #1a1a2e !important;
         font-size: 0.85rem;
+        font-weight: 700;
         text-decoration: none;
-        font-weight: 600;
+        border-radius: 8px;
+        transition: opacity 0.2s;
     }
-    .card-link:hover {
-        color: #ff9de0;
-    }
-
-    /* 로딩 */
-    .loading-text {
-        text-align: center;
-        font-size: 1.2rem;
-        color: #7b2ff7;
-        padding: 2rem;
+    .card-link-btn:hover {
+        opacity: 0.8;
+        color: #1a1a2e !important;
     }
 
     /* 버튼 스타일 */
@@ -186,6 +213,59 @@ with st.sidebar:
         placeholder="예: 대중교통으로 출퇴근하고, 편의점과 카페를 자주 이용하는 직장인입니다...",
     )
 
+
+def render_card(rec, index, card_type="credit"):
+    """카드 추천 결과를 렌더링"""
+    card_name = html.escape(rec.get("card_name", "알 수 없음"))
+    card_company = html.escape(rec.get("card_company", ""))
+    reason = html.escape(rec.get("reason", ""))
+    saving = html.escape(rec.get("monthly_saving", ""))
+    annual_fee = html.escape(rec.get("annual_fee", ""))
+    card_url = rec.get("card_url", "")
+
+    link_html = ""
+    if card_url and card_url.startswith(("http://", "https://")):
+        safe_url = html.escape(card_url)
+        link_html = f'<a class="card-link-btn" href="{safe_url}" target="_blank">카드 상세 보기 &rarr;</a>'
+
+    fee_html = ""
+    if annual_fee:
+        fee_html = f'<div class="card-fee">연회비: {annual_fee}</div>'
+
+    box_class = "card-box check-type" if card_type == "check" else "card-box"
+
+    # 상세 설명 요약: 각 섹션의 첫 줄(제목+핵심)만 추출
+    detail = rec.get("detail_description", "")
+    detail_summary_html = ""
+    if detail:
+        lines = [l.strip() for l in detail.split("\n") if l.strip()]
+        summary_items = []
+        for line in lines:
+            if line.startswith("[") and line.endswith("]"):
+                summary_items.append(html.escape(line.strip("[]")))
+        if not summary_items:
+            summary_items = [html.escape(l) for l in lines[:5]]
+        detail_summary_html = (
+            '<div class="reason-label" style="margin-top:1rem;">주요 혜택</div>'
+            '<div class="reason-text">' + " · ".join(summary_items[:8]) + '</div>'
+        )
+
+    st.markdown(f"""
+    <div class="{box_class}">
+        <div class="card-number {card_type}">#{index}</div>
+        <div class="card-name">{card_name}</div>
+        <div class="card-company">{card_company}</div>
+        {fee_html}
+        <div class="reason-label">추천 이유</div>
+        <div class="reason-text">{reason}</div>
+        <div class="reason-label">예상 월 절약 금액</div>
+        <div class="saving-badge">{saving if saving else "산정 불가"}</div>
+        {detail_summary_html}
+        <br>{link_html}
+    </div>
+    """, unsafe_allow_html=True)
+
+
 # 추천 버튼
 mode = st.radio("출력 방식", ["구조화 카드", "스트리밍 텍스트"], horizontal=True)
 
@@ -201,7 +281,7 @@ if st.button("카드 추천 받기", type="primary", use_container_width=True):
             for card in source_cards:
                 name = html.escape(card.get("card_name", ""))
                 url = card.get("card_url", "")
-                if url:
+                if url and url.startswith(("http://", "https://")):
                     st.markdown(f"- [{name}]({url})")
                 else:
                     st.markdown(f"- {name}")
@@ -209,32 +289,28 @@ if st.button("카드 추천 받기", type="primary", use_container_width=True):
         with st.spinner("AI가 맞춤 카드를 분석하고 있습니다..."):
             result = get_structured_recommendation(persona_text)
 
-        recommendations = result["recommendations"]
+        credit_recs = result.get("credit", [])
+        check_recs = result.get("check", [])
 
-        if not recommendations:
+        if not credit_recs and not check_recs:
             st.error("추천 결과를 생성하지 못했습니다. 다시 시도해주세요.")
         else:
-            for i, rec in enumerate(recommendations, 1):
-                card_name = html.escape(rec.get("card_name", "알 수 없음"))
-                card_company = html.escape(rec.get("card_company", ""))
-                reason = html.escape(rec.get("reason", ""))
-                saving = html.escape(rec.get("monthly_saving", ""))
-                card_url = rec.get("card_url", "")
+            col_credit, col_check = st.columns(2)
 
-                link_html = ""
-                if card_url and card_url.startswith(("http://", "https://")):
-                    safe_url = html.escape(card_url)
-                    link_html = f'<a class="card-link" href="{safe_url}" target="_blank">상세 정보 보기 &rarr;</a>'
+            with col_credit:
+                if credit_recs:
+                    st.markdown(
+                        '<div class="section-header credit">💳 신용카드 TOP 3</div>',
+                        unsafe_allow_html=True,
+                    )
+                    for i, rec in enumerate(credit_recs, 1):
+                        render_card(rec, i, "credit")
 
-                st.markdown(f"""
-                <div class="card-box">
-                    <div class="card-number">#{i}</div>
-                    <div class="card-name">{card_name}</div>
-                    <div class="card-company">{card_company}</div>
-                    <div class="reason-label">추천 이유</div>
-                    <div class="reason-text">{reason}</div>
-                    <div class="reason-label">예상 월 절약 금액</div>
-                    <div class="saving-badge">{saving if saving else "산정 불가"}</div>
-                    <br>{link_html}
-                </div>
-                """, unsafe_allow_html=True)
+            with col_check:
+                if check_recs:
+                    st.markdown(
+                        '<div class="section-header check">🏦 체크카드 TOP 3</div>',
+                        unsafe_allow_html=True,
+                    )
+                    for i, rec in enumerate(check_recs, 1):
+                        render_card(rec, i, "check")

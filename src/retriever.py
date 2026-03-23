@@ -1,7 +1,7 @@
 from langchain_openai import ChatOpenAI
-from langchain.retrievers.multi_query import MultiQueryRetriever
+from langchain_classic.retrievers.multi_query import MultiQueryRetriever
 from langchain_community.retrievers import BM25Retriever
-from langchain.retrievers import EnsembleRetriever
+from langchain_classic.retrievers.ensemble import EnsembleRetriever
 
 import config
 

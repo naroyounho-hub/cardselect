@@ -13,7 +13,8 @@ def get_embedding_model() -> HuggingFaceEmbeddings:
     global _embedding_model
     if _embedding_model is None:
         _embedding_model = HuggingFaceEmbeddings(
-            model_name=config.EMBEDDING_MODEL_NAME
+            model_name=config.EMBEDDING_MODEL_NAME,
+            model_kwargs={"device": "cpu"},
         )
     return _embedding_model
 
@@ -21,7 +22,7 @@ def get_embedding_model() -> HuggingFaceEmbeddings:
 def load_card_data(json_path: str = None) -> list[dict]:
     """JSON 파일에서 카드 데이터 로드"""
     if json_path is None:
-        json_path = config.DATA_RAW_DIR / "cards_data.json"
+        json_path = config.DATA_RAW_DIR / "all_cards.json"
 
     with open(json_path, "r", encoding="utf-8") as f:
         cards = json.load(f)
@@ -38,21 +39,23 @@ def load_card_data(json_path: str = None) -> list[dict]:
 
 def card_to_document(card: dict) -> Document:
     """단일 카드 dict → LangChain Document 변환"""
+    categories = ', '.join(card['benefit_categories']) if isinstance(card['benefit_categories'], list) else card['benefit_categories']
     page_content = (
         f"카드명: {card['card_name']}\n"
         f"카드사: {card['card_company']}\n"
         f"카드종류: {card['card_type']}\n"
         f"연회비: {card['annual_fee']}\n"
         f"주요혜택: {card['benefits']}\n"
-        f"혜택 카테고리: {', '.join(card['benefit_categories'])}\n"
-        f"상세설명: {card['detail_description']}"
+        f"혜택 카테고리: {categories}"
     )
 
     metadata = {
         "card_name": card["card_name"],
         "card_type": card["card_type"],
         "card_company": card["card_company"],
+        "annual_fee": card.get("annual_fee", ""),
         "benefit_categories": card["benefit_categories"],
+        "detail_description": card.get("detail_description", ""),
         "image_url": card.get("image_url", ""),
         "card_url": card.get("card_url", ""),
     }

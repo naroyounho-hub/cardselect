@@ -35,17 +35,28 @@ STRUCTURED_PROMPT = ChatPromptTemplate.from_template("""당신은 카드 추천 
 참고할 카드 정보:
 {context}
 
-사용자의 소비 패턴과 니즈를 분석하여 가장 적합한 카드 3장을 추천해주세요.
+사용자의 소비 패턴과 니즈를 분석하여 **신용카드 3장**과 **체크카드 3장**을 추천해주세요.
+참고할 카드 정보에 있는 카드 중에서만 추천하세요.
 
 반드시 아래 JSON 형식으로만 응답하세요. JSON 외의 텍스트는 절대 포함하지 마세요:
-[
-  {{
-    "card_name": "카드명",
-    "card_company": "카드사",
-    "reason": "이 사용자에게 추천하는 구체적인 이유 (소비 패턴과 연결하여 3~4문장으로 설명)",
-    "monthly_saving": "예상 월 절약 금액 (예: 약 15,000원)"
-  }}
-]""")
+{{
+  "credit": [
+    {{
+      "card_name": "카드명 (참고 카드 정보의 카드명과 정확히 일치해야 함)",
+      "card_company": "카드사",
+      "reason": "이 사용자에게 추천하는 구체적인 이유 (소비 패턴과 연결하여 3~4문장으로 설명)",
+      "monthly_saving": "예상 월 절약 금액 (예: 약 15,000원)"
+    }}
+  ],
+  "check": [
+    {{
+      "card_name": "카드명 (참고 카드 정보의 카드명과 정확히 일치해야 함)",
+      "card_company": "카드사",
+      "reason": "이 사용자에게 추천하는 구체적인 이유 (소비 패턴과 연결하여 3~4문장으로 설명)",
+      "monthly_saving": "예상 월 절약 금액 (예: 약 15,000원)"
+    }}
+  ]
+}}""")
 
 
 def format_docs(docs) -> str:
@@ -63,7 +74,10 @@ def extract_source_cards(docs) -> list[dict]:
             seen.add(name)
             cards.append({
                 "card_name": name,
+                "card_type": doc.metadata.get("card_type", ""),
                 "card_company": doc.metadata.get("card_company", ""),
+                "annual_fee": doc.metadata.get("annual_fee", ""),
+                "detail_description": doc.metadata.get("detail_description", ""),
                 "image_url": doc.metadata.get("image_url", ""),
                 "card_url": doc.metadata.get("card_url", ""),
             })
@@ -135,27 +149,39 @@ def get_structured_recommendation(persona_text: str) -> dict:
     raw = chain.invoke({"context": context, "persona": persona_text})
 
     try:
-        recommendations = json_module.loads(raw)
+        parsed = json_module.loads(raw)
     except json_module.JSONDecodeError:
         import re
-        # 가장 바깥쪽 JSON 배열을 non-greedy로 추출
-        match = re.search(r'\[.*?\]', raw, re.DOTALL)
+        match = re.search(r'\{.*\}', raw, re.DOTALL)
         if match:
             try:
-                recommendations = json_module.loads(match.group())
+                parsed = json_module.loads(match.group())
             except json_module.JSONDecodeError:
-                recommendations = []
+                parsed = {"credit": [], "check": []}
         else:
-            recommendations = []
+            parsed = {"credit": [], "check": []}
 
-    # source_cards의 image_url, card_url을 recommendations에 병합
+    # 리스트로 온 경우 (이전 형식 호환)
+    if isinstance(parsed, list):
+        parsed = {"credit": parsed, "check": []}
+
+    credit_recs = parsed.get("credit", [])
+    check_recs = parsed.get("check", [])
+
+    # source_cards의 메타데이터를 recommendations에 병합
     source_map = {c["card_name"]: c for c in source_cards}
-    for rec in recommendations:
+    for rec in credit_recs + check_recs:
         src = source_map.get(rec.get("card_name"), {})
         rec["image_url"] = src.get("image_url", "")
         rec["card_url"] = src.get("card_url", "")
+        rec["annual_fee"] = src.get("annual_fee", "")
+        rec["detail_description"] = src.get("detail_description", "")
 
-    return {"recommendations": recommendations, "source_cards": source_cards}
+    return {
+        "credit": credit_recs,
+        "check": check_recs,
+        "source_cards": source_cards,
+    }
 
 
 def get_rag_response(persona_text: str) -> str:
