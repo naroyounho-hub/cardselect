@@ -40,6 +40,7 @@ def load_card_data(json_path: str = None) -> list[dict]:
 def card_to_document(card: dict) -> Document:
     """단일 카드 dict → LangChain Document 변환"""
     categories = ', '.join(card['benefit_categories']) if isinstance(card['benefit_categories'], list) else card['benefit_categories']
+    # 검색용 임베딩: benefits 중심 짧은 텍스트 (유사도 검색 정확도 ↑)
     page_content = (
         f"카드명: {card['card_name']}\n"
         f"카드사: {card['card_company']}\n"

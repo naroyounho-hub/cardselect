@@ -60,8 +60,16 @@ STRUCTURED_PROMPT = ChatPromptTemplate.from_template("""당신은 카드 추천 
 
 
 def format_docs(docs) -> str:
-    """Document 리스트를 프롬프트용 텍스트로 포맷팅"""
-    return "\n\n---\n\n".join(doc.page_content for doc in docs)
+    """Document 리스트를 프롬프트용 텍스트로 포맷팅
+    검색은 benefits(page_content)로, LLM 컨텍스트에는 detail_description도 포함"""
+    parts = []
+    for doc in docs:
+        text = doc.page_content
+        detail = doc.metadata.get("detail_description", "")
+        if detail:
+            text += f"\n상세혜택:\n{detail}"
+        parts.append(text)
+    return "\n\n---\n\n".join(parts)
 
 
 def extract_source_cards(docs) -> list[dict]:
